@@ -1,7 +1,7 @@
-# Arquitetura Proposta — Flash Booking (CQRS + Kotlin + Spring Boot)
+# Arquitetura Proposta — Flash Booking (CQRS + Java + Spring Boot)
 
 Documento de abordagem arquitetural para o desafio de reserva de ingressos, cobrindo os requisitos de
-não-oversell, expiração automática, idempotência e consistência eventual, usando **CQRS** com **Kotlin**
+não-oversell, expiração automática, idempotência e consistência eventual, usando **CQRS** com **Java**
 e **Spring Boot**.
 
 ---
@@ -237,10 +237,10 @@ stateDiagram-v2
 - Circuit breaker/retry (Resilience4j) na publicação de eventos.
 - Escalar o read model com cache (Redis) para consultas de disponibilidade de altíssimo tráfego.
 
-## 9. Estrutura de Pacotes (Kotlin/Spring Boot)
+## 9. Estrutura de Pacotes (Java/Spring Boot)
 
 ```
-src/main/kotlin/com/flashbooking
+src/main/java/com/flashbooking
 ├── api
 │   └── controller        // REST Controllers
 ├── command
