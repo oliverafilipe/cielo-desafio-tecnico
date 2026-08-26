@@ -1,1 +1,4 @@
-C:\Users\filip\Documents\cielo-desafio-tecnico\src\test\java\br\com\cielo\cielodesafiotecnico\CieloDesafioTecnicoApplicationTests.java
+C:\Users\filip\Documents\cielo-desafio-tecnico\src\test\java\com\flashbooking\command\domain\EventAggregateTest.java
+C:\Users\filip\Documents\cielo-desafio-tecnico\src\test\java\com\flashbooking\command\handler\ReserveTicketsCommandHandlerTest.java
+C:\Users\filip\Documents\cielo-desafio-tecnico\src\test\java\com\flashbooking\FlashBookingApplicationTests.java
+C:\Users\filip\Documents\cielo-desafio-tecnico\src\test\java\com\flashbooking\scheduler\ReservationExpirationSchedulerTest.java
