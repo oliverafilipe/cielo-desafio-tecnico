@@ -1,0 +1,315 @@
+{
+  "info": {
+    "_postman_id": "c7183e92-3a21-4f89-8d19-92c478a31e84",
+    "name": "Flash Booking - Concurrency Test (200 Users vs 50 Seats)",
+    "description": "Simulação de alta concorrência: 200 requisições simultâneas disputando apenas 50 assentos disponíveis.\n\nObjetivo: Validar que a proteção Anti-Oversell (Redis Lock + SELECT FOR UPDATE) garante exatamente 50 reservas bem-sucedidas (201 Created) e 150 rejeitadas por esgotamento (409 Conflict), sem nenhum oversell e com consistência final de 0 assentos restantes.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "concurrencyEventId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "totalConcurrentUsers",
+      "value": "200",
+      "type": "string"
+    },
+    {
+      "key": "totalAvailableSeats",
+      "value": "50",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Step 1 - Create Event with Limited Capacity (50 Seats)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Step 1: Event successfully created (201 Created)', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "var data = pm.response.json();",
+              "pm.test('Step 1: Response contains valid eventId', function () {",
+              "    pm.expect(data).to.have.property('eventId');",
+              "    pm.collectionVariables.set('concurrencyEventId', data.eventId);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Flash Sale - Concurrency 200 Users vs 50 Seats\",\n  \"totalSeats\": 50\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/events",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "events"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Step 2 - Verify Initial Event Availability (50 Available)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Step 2: Status is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "var data = pm.response.json();",
+              "pm.test('Step 2: Available seats are initialized to 50', function () {",
+              "    pm.expect(data.totalSeats).to.eql(50);",
+              "    pm.expect(data.availableSeats).to.eql(50);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/events/{{concurrencyEventId}}/availability",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "events",
+            "{{concurrencyEventId}}",
+            "availability"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Step 3 - Execute 200 Concurrent Reservation Requests",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const baseUrl = pm.collectionVariables.get('baseUrl') || 'http://localhost:8080';",
+              "const eventId = pm.collectionVariables.get('concurrencyEventId');",
+              "const totalUsers = parseInt(pm.collectionVariables.get('totalConcurrentUsers') || '200', 10);",
+              "const capacity = parseInt(pm.collectionVariables.get('totalAvailableSeats') || '50', 10);",
+              "",
+              "let successCount = 0;",
+              "let conflictCount = 0;",
+              "let errorCount = 0;",
+              "const results = [];",
+              "",
+              "const promises = [];",
+              "",
+              "for (let i = 1; i <= totalUsers; i++) {",
+              "    const userIndex = i;",
+              "    const idempotencyKey = 'concurrent-key-user-' + userIndex + '-' + Date.now() + '-' + Math.floor(Math.random() * 100000);",
+              "    ",
+              "    const requestOptions = {",
+              "        url: baseUrl + '/events/' + eventId + '/reservations',",
+              "        method: 'POST',",
+              "        header: {",
+              "            'Content-Type': 'application/json',",
+              "            'Idempotency-Key': idempotencyKey",
+              "        },",
+              "        body: {",
+              "            mode: 'raw',",
+              "            raw: JSON.stringify({",
+              "                customerId: 'user-' + userIndex + '@test.com',",
+              "                quantity: 1",
+              "            })",
+              "        }",
+              "    };",
+              "",
+              "    const p = new Promise(function (resolve) {",
+              "        pm.sendRequest(requestOptions, function (err, res) {",
+              "            if (err) {",
+              "                errorCount++;",
+              "                results.push({ user: userIndex, status: 'ERROR', error: err });",
+              "            } else {",
+              "                if (res.code === 201 || res.code === 200) {",
+              "                    successCount++;",
+              "                } else if (res.code === 409) {",
+              "                    conflictCount++;",
+              "                } else {",
+              "                    errorCount++;",
+              "                }",
+              "                results.push({ user: userIndex, status: res.code });",
+              "            }",
+              "            resolve();",
+              "        });",
+              "    });",
+              "",
+              "    promises.push(p);",
+              "}",
+              "",
+              "Promise.all(promises).then(function () {",
+              "    pm.test('ANTI-OVERSELL VALIDATION: Exactly ' + capacity + ' reservations succeeded (201 Created)', function () {",
+              "        pm.expect(successCount).to.eql(capacity);",
+              "    });",
+              "",
+              "    pm.test('ANTI-OVERSELL VALIDATION: Exactly ' + (totalUsers - capacity) + ' requests rejected (409 Conflict)', function () {",
+              "        pm.expect(conflictCount).to.eql(totalUsers - capacity);",
+              "    });",
+              "",
+              "    pm.test('SYSTEM STABILITY: Zero unexpected errors or dropped requests', function () {",
+              "        pm.expect(errorCount).to.eql(0);",
+              "    });",
+              "",
+              "    console.log('=== CONCURRENCY TEST SUMMARY ===');",
+              "    console.log('Total Requests: ' + totalUsers);",
+              "    console.log('Accepted (201): ' + successCount + ' (Expected: ' + capacity + ')');",
+              "    console.log('Sold Out (409): ' + conflictCount + ' (Expected: ' + (totalUsers - capacity) + ')');",
+              "    console.log('Errors: ' + errorCount + ' (Expected: 0)');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "trigger-concurrency-run"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customerId\": \"concurrency-trigger\",\n  \"quantity\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/events/{{concurrencyEventId}}/reservations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "events",
+            "{{concurrencyEventId}}",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Step 4 - Verify Final Availability is Exactly 0 (Zero Oversell)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Step 4: Status is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "var data = pm.response.json();",
+              "pm.test('FINAL INVARIANT: Available seats is strictly 0 (no oversell)', function () {",
+              "    pm.expect(data.totalSeats).to.eql(50);",
+              "    pm.expect(data.availableSeats).to.eql(0);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/events/{{concurrencyEventId}}/availability",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "events",
+            "{{concurrencyEventId}}",
+            "availability"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Step 5 - Verify Subsequent Reservation Attempt Receives 409 Conflict",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Step 5: Subsequent reservation is rejected with 409 Conflict', function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "",
+              "var data = pm.response.json();",
+              "pm.test('Step 5: Error message contains Sold out', function () {",
+              "    pm.expect(data.status).to.eql(409);",
+              "    pm.expect(data.error).to.eql('Conflict');",
+              "    pm.expect(data.message).to.include('Sold out');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "post-concurrency-attempt-{{$guid}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customerId\": \"late-customer@test.com\",\n  \"quantity\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/events/{{concurrencyEventId}}/reservations",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "events",
+            "{{concurrencyEventId}}",
+            "reservations"
+          ]
+        }
+      }
+    }
+  ]
+}
