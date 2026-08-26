@@ -1,4 +1,0 @@
-com\flashbooking\command\handler\ReserveTicketsCommandHandlerTest.class
-com\flashbooking\command\domain\EventAggregateTest.class
-com\flashbooking\scheduler\ReservationExpirationSchedulerTest.class
-com\flashbooking\FlashBookingApplicationTests.class
