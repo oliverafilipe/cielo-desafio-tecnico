@@ -9,7 +9,7 @@ Desafio técnico de Engenheiro de Backend Sênior/Especialista. Após a entrega 
 apresentação das decisões arquiteturais — o código precisa expressar claramente as decisões, não só
 "funcionar".
 
-Arquitetura de referência: ver `arquitetura-cqrs-kotlin.md` (diagramas de componentes, classes,
+Arquitetura de referência: ver `README.md` (diagramas de componentes, classes,
 sequência e estados). Este arquivo é a fonte de verdade sobre o desenho **CQRS**; o CLAUDE.md aqui é
 sobre **como implementar** esse desenho.
 
@@ -95,7 +95,7 @@ conveniência de implementação**:
 ## O Que Documentar no README (entrega final)
 
 - Como subir com `docker compose up`
-- Decisões arquiteturais e trade-offs (puxar de `arquitetura-cqrs-kotlin.md`, mas escrever com as
+- Decisões arquiteturais e trade-offs (puxar de `README.md`, mas escrever com as
   palavras do código final, não copiar o diagrama)
 - Evoluções futuras (event sourcing completo, outbox pattern, circuit breaker, cache no read model)
 
